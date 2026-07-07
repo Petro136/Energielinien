@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heilige Energielinien Europas – Interaktive Karte</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<style>
+  html, body { margin:0; padding:0; height:100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#0e1117; }
+  #map { position:absolute; top:0; bottom:0; left:0; right:0; }
+
+  .panel {
+    position:absolute; z-index:1000; background:rgba(20,22,28,0.93); color:#eee;
+    border-radius:10px; box-shadow:0 4px 18px rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  }
+
+  #sidebar-toggle {
+    position:absolute; top:12px; left:12px; z-index:1002;
+    width:44px; height:44px; border-radius:50%; border:none;
+    background:rgba(20,22,28,0.93); color:#f4d9a0; font-size:20px; cursor:pointer;
+    box-shadow:0 4px 18px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center;
+  }
+
+  #sidebar {
+    top:0; left:0; height:100%; width:320px; max-width:85vw;
+    border-radius:0; padding:70px 18px 18px 18px; overflow-y:auto;
+    transition: transform 0.25s ease;
+  }
+  #sidebar.collapsed { transform: translateX(-100%); }
+
+  #sidebar h1 { font-size:16px; margin:0 0 4px 0; letter-spacing:0.3px; color:#f4d9a0; }
+  #sidebar p.intro { font-size:12.5px; line-height:1.45; margin:6px 0 0 0; color:#c9c9c9; }
+
+  #sidebar h3 { margin:18px 0 8px 0; font-size:13px; color:#f4d9a0; border-top:1px solid rgba(255,255,255,0.12); padding-top:14px; }
+  #sidebar h3.first { border-top:none; padding-top:0; margin-top:14px; }
+  #sidebar h4 { margin:14px 0 6px 0; font-size:11.5px; color:#999; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid rgba(255,255,255,0.12); padding-top:10px; }
+  .line-row { display:flex; align-items:flex-start; gap:8px; margin-bottom:9px; cursor:pointer; }
+  .line-row input { margin-top:3px; cursor:pointer; }
+  .line-swatch { display:inline-block; width:22px; height:3px; margin-top:7px; border-radius:2px; flex-shrink:0; }
+  .line-row .label-text b { display:block; font-size:12.5px; color:#eee; }
+  .line-row .label-text span { display:block; font-size:11px; color:#999; }
+
+  #sidebar .legend-block { font-size:11.5px; line-height:1.5; }
+  #sidebar .legend-block .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:middle; background:#ccc; }
+
+  @media (max-width: 700px) {
+    #sidebar { width:280px; padding-top:64px; }
+    #sidebar-toggle { width:40px; height:40px; font-size:18px; }
+  }
+
+  .site-popup h3 { margin:0 0 4px 0; font-size:14px; color:#5a3d2b; }
+  .site-popup p { margin:2px 0; font-size:12.5px; line-height:1.4; }
+  .site-popup .coords { color:#888; font-size:11px; margin-top:4px; }
+  .site-popup .dist-row { margin-top:6px; padding-top:6px; border-top:1px solid #eee; }
+
+  .layer-toggle { position:absolute; bottom:14px; right:12px; z-index:1000; background:rgba(20,22,28,0.93); border-radius:10px; overflow:hidden; display:flex; }
+  .layer-toggle button { background:transparent; border:none; color:#ccc; padding:8px 12px; font-size:12px; cursor:pointer; }
+  .layer-toggle button.active { background:#f4d9a0; color:#20140a; font-weight:600; }
+
+  .click-marker-icon { font-size:20px; text-shadow: 0 0 3px white; }
+
+  .site-label {
+    background: rgba(20,22,28,0.85); color:#fff; border:none; border-radius:4px;
+    padding:2px 6px; font-size:11px; font-weight:600; white-space:nowrap;
+    box-shadow:0 1px 4px rgba(0,0,0,0.4);
+  }
+  .site-label::before { display:none; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<button id="sidebar-toggle" title="Menü ein-/ausblenden">☰</button>
+
+<div class="panel" id="sidebar">
+  <h1>⚔️ Heilige Energielinien Europas</h1>
+  <p class="intro">Sechzehn bekannte Alignments plus zahlreiche einzelne Kraftorte (Michael-Heiligtümer, Druidenplätze, Kathedralen, Sacri Monti, romanische Kirchen u.v.m.) über ganz Europa. <b>Klicke auf die Karte</b>, um den Abstand eines beliebigen Punktes zu jeder aktiven Linie/jedem Kraftort zu berechnen.</p>
+
+  <h3 class="first">Linien ein-/ausblenden</h3>
+  <div id="lines-checkboxes"></div>
+  <h4>Einzelne Kraftorte</h4>
+  <div id="points-checkboxes"></div>
+
+  <h3>Legende</h3>
+  <div class="legend-block">
+    <div><span class="dot"></span> Heiligtum / Kraftort (Marker in Linienfarbe)</div>
+    <div style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3a7bd5;margin-right:6px;vertical-align:middle;"></span> Dein angeklickter Punkt</div>
+    <div style="margin-top:6px; color:#999;">Pufferzonen je Linie: 1 km · 5 km (kräftiger = näher an der Linie)</div>
+    <div style="margin-top:6px; color:#999;">Alle Ortsnamen sind fest auf Deutsch beschriftet, unabhängig von der gewählten Kartenansicht.</div>
+  </div>
+</div>
+
+<div class="layer-toggle">
+  <button id="btn-street" class="active">Karte</button>
+  <button id="btn-sat">Satellit</button>
+  <button id="btn-terrain">Relief</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+// ===================================================================
+// Grundlegende geodätische Hilfsfunktionen
+// ===================================================================
+const R = 6371; // Erdradius in km
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const phi1 = toRad(lat1), phi2 = toRad(lat2), dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(phi2);
+  const x = Math.cos(phi1)*Math.sin(phi2) - Math.sin(phi1)*Math.cos(phi2)*Math.cos(dLon);
+  return Math.atan2(y, x);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function destination(lat, lon, bearingRad, distKm) {
+  const delta = distKm / R;
+  const lat1 = toRad(lat), lon1 = toRad(lon);
+  const lat2 = Math.asin(Math.sin(lat1)*Math.cos(delta) + Math.cos(lat1)*Math.sin(delta)*Math.cos(bearingRad));
+  const lon2 = lon1 + Math.atan2(
+    Math.sin(bearingRad)*Math.sin(delta)*Math.cos(lat1),
+    Math.cos(delta) - Math.sin(lat1)*Math.sin(lat2)
+  );
+  return [toDeg(lat2), toDeg(lon2)];
+}
+
+// Distanz eines Punkts P zu einem Großkreis-Segment A-B (auf das Segment begrenzt)
+function distanceToSegment(pLat, pLon, aLat, aLon, bLat, bLon) {
+  const dAP = haversine(aLat, aLon, pLat, pLon) / R;
+  const brgAP = bearing(aLat, aLon, pLat, pLon);
+  const brgAB = bearing(aLat, aLon, bLat, bLon);
+  const crossTrack = Math.asin(Math.sin(dAP) * Math.sin(brgAP - brgAB)) * R;
+  const alongTrack = Math.acos(Math.cos(dAP) / Math.cos(crossTrack / R)) * R;
+  const segLen = haversine(aLat, aLon, bLat, bLon);
+
+  if (isNaN(alongTrack) || alongTrack < 0) return haversine(pLat, pLon, aLat, aLon);
+  if (alongTrack > segLen) return haversine(pLat, pLon, bLat, bLon);
+  return Math.abs(crossTrack);
+}
+
+function nearestSegmentDistance(sites, pLat, pLon) {
+  let best = { dist: Infinity, segIndex: -1 };
+  for (let i = 0; i < sites.length - 1; i++) {
+    const d = distanceToSegment(pLat, pLon, sites[i].lat, sites[i].lng, sites[i+1].lat, sites[i+1].lng);
+    if (d < best.dist) best = { dist: d, segIndex: i };
+  }
+  return best;
+}
+
+// ===================================================================
+// Definition der drei Energielinien
+// ===================================================================
+const LINES = [
+  {
+    id: "michael",
+    name: "St.-Michael-Linie",
+    region: "Irland → Israel",
+    color: "#d94f4f",
+    defaultOn: true,
+    sites: [
+      { name: "Skellig Michael", country: "Irland", lat: 51.7713, lng: -10.5392,
+        desc: "Steile Felseninsel im Atlantik. Iroschottisches Mönchskloster ab dem 6.–8. Jh., UNESCO-Welterbe. Westlicher Endpunkt der Linie." },
+      { name: "St Michael's Mount", country: "Cornwall, England", lat: 50.1180, lng: -5.4775,
+        desc: "Gezeiteninsel vor Marazion. Erscheinung des Erzengels 495 n.Chr. vor Fischern überliefert." },
+      { name: "Mont-Saint-Michel", country: "Normandie, Frankreich", lat: 48.6361, lng: -1.5115,
+        desc: "Klosterinsel, gegründet 708 n.Chr. nach einer Erscheinung Michaels vor Bischof Aubert." },
+      { name: "Sacra di San Michele", country: "Piemont, Italien", lat: 45.0997, lng: 7.3417,
+        desc: "Abtei im Susa-Tal, um 1000 n.Chr. errichtet – der Legende nach genau auf halbem Weg zwischen Mont-Saint-Michel und Monte Sant'Angelo." },
+      { name: "Assisi", country: "Umbrien, Italien", lat: 43.0707, lng: 12.6197,
+        desc: "Mehrere italienische Quellen beschreiben, dass sich die Linie zwischen Sacra di San Michele und Monte Sant'Angelo hier 'zeigt', bevor sie in der Grotte von Monte Sant'Angelo ihre volle Kraft entfaltet. Geburtsort des Franz von Assisi." },
+      { name: "Santuario di Monte Sant'Angelo", country: "Gargano, Italien", lat: 41.7075, lng: 15.9539,
+        desc: "Älteste dem Erzengel geweihte Stätte Westeuropas, gegründet um 490–500 n.Chr." },
+      { name: "Kloster Panormitis", country: "Insel Symi, Griechenland", lat: 36.5878, lng: 27.8319,
+        desc: "Kloster des Erzengels Michael Taxiarchis in der Ägäis." },
+      { name: "Stella Maris / Berg Karmel", country: "Haifa, Israel", lat: 32.8264, lng: 34.9711,
+        desc: "Karmeliterkloster – östlicher Endpunkt der Linie, verbunden mit der Elija-Überlieferung." }
+    ]
+  },
+  {
+    id: "apollo",
+    name: "Apollo-Athena-Linie",
+    region: "Irland → Griechenland/Israel",
+    color: "#d4a03a",
+    defaultOn: true,
+    sites: [
+      { name: "Skellig Michael", country: "Irland", lat: 51.7713, lng: -10.5392,
+        desc: "Gemeinsamer Ausgangspunkt mit der St.-Michael-Linie." },
+      { name: "St Michael's Mount", country: "Cornwall, England", lat: 50.1180, lng: -5.4775, desc: "" },
+      { name: "Mont-Saint-Michel", country: "Normandie, Frankreich", lat: 48.6361, lng: -1.5115, desc: "" },
+      { name: "Le Mans (Kathedrale St-Julien)", country: "Frankreich", lat: 48.0061, lng: 0.1996,
+        desc: "Zwischenstation auf dem Weg nach Südosten." },
+      { name: "Bourges (Kathedrale St-Étienne)", country: "Frankreich", lat: 47.0810, lng: 2.3988, desc: "" },
+      { name: "Abtei Cluny", country: "Burgund, Frankreich", lat: 46.4344, lng: 4.6589,
+        desc: "Einst mächtigstes Kloster des Abendlandes." },
+      { name: "Basilika Notre-Dame de Fourvière", country: "Lyon, Frankreich", lat: 45.7622, lng: 4.8222,
+        desc: "Überragt die Stadt Lyon, die auf der Linie liegen soll." },
+      { name: "Sacra di San Michele", country: "Piemont, Italien", lat: 45.0997, lng: 7.3417,
+        desc: "Kreuzungspunkt mit der St.-Michael-Linie." },
+      { name: "Perugia", country: "Umbrien, Italien", lat: 43.1122, lng: 12.3888,
+        desc: "Etruskisch-römische Kultstadt in Umbrien." },
+      { name: "Monte Sant'Angelo", country: "Gargano, Italien", lat: 41.7075, lng: 15.9539,
+        desc: "Zweiter Kreuzungspunkt mit der St.-Michael-Linie." },
+      { name: "Dodona", country: "Epirus, Griechenland", lat: 39.5450, lng: 20.7889,
+        desc: "Älteste Orakelstätte Griechenlands, dem Zeus geweiht." },
+      { name: "Delphi", country: "Griechenland", lat: 38.4824, lng: 22.5010,
+        desc: "Berühmtestes Apollo-Orakel der Antike." },
+      { name: "Athen (Akropolis)", country: "Griechenland", lat: 37.9715, lng: 23.7267,
+        desc: "Kultstätte der Athena, Namensgeberin der Linie." },
+      { name: "Delos", country: "Kykladen, Griechenland", lat: 37.3968, lng: 25.2698,
+        desc: "Mythischer Geburtsort von Apollo und Artemis." },
+      { name: "Rhodos", country: "Griechenland", lat: 36.4341, lng: 28.2176,
+        desc: "Sonnengott Helios; später Sitz der Johanniter-Ritter." },
+      { name: "Stella Maris / Berg Karmel", country: "Haifa, Israel", lat: 32.8264, lng: 34.9711,
+        desc: "Gemeinsamer Endpunkt mit der St.-Michael-Linie." }
+    ]
+  },
+  {
+    id: "marymichael",
+    name: "Michael-und-Maria-Linie",
+    region: "England (Norfolk → Cornwall)",
+    color: "#8a63c9",
+    defaultOn: true,
+    sites: [
+      { name: "Hopton-on-Sea", country: "Norfolk, England", lat: 52.5388, lng: 1.7325,
+        desc: "Östlicher Ausgangspunkt der Linie an der Nordseeküste." },
+      { name: "Bury St Edmunds", country: "Suffolk, England", lat: 52.2464, lng: 0.7104,
+        desc: "Ehemals bedeutende Abtei, benannt nach dem heiligen Edmund." },
+      { name: "Ely Cathedral", country: "Cambridgeshire, England", lat: 52.3986, lng: 0.2622,
+        desc: "\"Schiff der Fens\" – markante Kathedrale in flacher Marschlandschaft." },
+      { name: "Avebury", country: "Wiltshire, England", lat: 51.4285, lng: -1.8540,
+        desc: "Größte megalithische Steinkreisanlage Europas." },
+      { name: "Glastonbury Tor", country: "Somerset, England", lat: 51.1443, lng: -2.6989,
+        desc: "Das legendäre Avalon: keltisch Ynys yr Afalon ('Apfelinsel'), einst wirklich von Sumpfland umgeben und zeitweise Insel. Der Hügel galt als Tor zur Anderswelt Annwn und Sitz des Feenkönigs Gwyn ap Nudd, später als Ruhestätte König Artus' nach seiner letzten Schlacht. Am Fuß entspringen die Chalice Well (eisenhaltig, rot) und die White Spring (kalkhaltig, weiß) – der Sage nach verbarg Josef von Arimathäa hier den Heiligen Gral. Nach Hamish Miller/Paul Broadhurst zentraler Knotenpunkt der verschlungenen Michael- und Maria-Ströme; die Ruine auf dem Gipfel ist der Turm einer eingestürzten Michaelskirche." },
+      { name: "Burrow Mump", country: "Somerset, England", lat: 51.0672, lng: -2.9862,
+        desc: "Kleiner Hügel mit Kirchenruine, weiterer Knotenpunkt auf dem Weg nach Cornwall." },
+      { name: "St Michael's Mount", country: "Cornwall, England", lat: 50.1180, lng: -5.4775,
+        desc: "Westlicher Endpunkt – zugleich Teil der St.-Michael-Linie nach Europa." }
+    ]
+  },
+  {
+    id: "externsteine",
+    name: "Externsteine-Ägypten-Achse",
+    region: "Deutschland → Ägypten",
+    color: "#5a8f5a",
+    defaultOn: true,
+    sites: [
+      { name: "Externsteine", country: "Teutoburger Wald, Deutschland", lat: 51.8637, lng: 8.9192,
+        desc: "Einer der bedeutendsten Kraftorte Deutschlands. Von hier sollen nach Klaus Piontziks 'Externstein-System' mehrere Leylinien nach Europa, Afrika und Asien ausstrahlen. Vorchristliche Kultstätte, später christlich überformt." },
+      { name: "Jungfernhöhle (Tiefenellern)", country: "Fränkische Schweiz, Bayern", lat: 49.9300, lng: 11.0500,
+        desc: "Prähistorische Opferhöhle in der Fränkischen Schweiz, die auf dieser Achse liegen soll." },
+      { name: "Esper-Höhle", country: "Fränkische Schweiz, Bayern", lat: 49.8870, lng: 11.3160,
+        desc: "Weitere bedeutende Höhle der Fränkischen Schweiz auf dem postulierten Streckenverlauf." },
+      { name: "Untersberg", country: "Bayern/Salzburg, Grenzgebiet", lat: 47.7175, lng: 13.0122,
+        desc: "Auch als 'Herzchakra Europas' bezeichnet. Markanter Alpenberg mit reicher Sagentradition (Kaiser-Karl-Sage). Hier als südlicher Wegpunkt der Achse in Richtung Alpen/Balkan gedacht." },
+      { name: "Gizeh (Pyramiden)", country: "Ägypten", lat: 29.9792, lng: 31.1342,
+        desc: "Postulierter Endpunkt der Achse. Wichtiger Hinweis: Die genaue Zwischenstrecke zwischen den Alpen, dem Balkan und Ägypten wird in den Quellen nicht einheitlich beschrieben – dieser letzte, sehr lange Abschnitt ist entsprechend spekulativ und sollte mit Vorsicht betrachtet werden." }
+    ]
+  },
+  {
+    id: "rhein",
+    name: "Rhein-Drachenlinie",
+    region: "Mittelrheintal, Deutschland",
+    color: "#3a8fbf",
+    defaultOn: true,
+    sites: [
+      { name: "Loreley", country: "Sankt Goarshausen, Deutschland", lat: 50.1385, lng: 7.7307,
+        desc: "Berühmter Schieferfelsen am Rhein, seit jeher als Kraftort und Sagenort (Loreley-Sage) verehrt." },
+      { name: "Rolandsbogen", country: "Rolandseck, Deutschland", lat: 50.6467, lng: 7.1907,
+        desc: "Ruine hoch über dem Rhein, Teil der Drachenfels-Sagenlandschaft." },
+      { name: "Drachenfels", country: "Königswinter, Deutschland", lat: 50.6668, lng: 7.2003,
+        desc: "Der Sage nach erschlug Siegfried hier einen Drachen und badete in dessen Blut – zentraler Ort der Nibelungen-Mythologie und einer der meistbesuchten Kraftorte am Rhein." }
+    ]
+  },
+  {
+    id: "speyer",
+    name: "Speyer–Kalmit-Linie",
+    region: "Pfalz, Deutschland",
+    color: "#c97a3d",
+    defaultOn: true,
+    sites: [
+      { name: "Kaiserdom zu Speyer", country: "Speyer, Deutschland", lat: 49.3181, lng: 8.4331,
+        desc: "Größte erhaltene romanische Kirche der Welt, UNESCO-Welterbe, Grablege salischer Kaiser." },
+      { name: "Kalmit", country: "Pfälzerwald, Deutschland", lat: 49.2925, lng: 8.1103,
+        desc: "Höchster Gipfel des Pfälzerwaldes; lokal postulierte Leylinie zwischen Dom und Berg." }
+    ]
+  },
+  {
+    id: "ippingen",
+    name: "Ippinger-Riese-Achse",
+    region: "Baden-Württemberg (Baar → Ulm)",
+    color: "#8b5e34",
+    defaultOn: true,
+    sites: [
+      { name: "Freiburger Münster / Schlossberg", country: "Freiburg im Breisgau, Deutschland", lat: 47.9956, lng: 7.8525,
+        desc: "Laut den Betreibern der Seite ippinger-riese.de eine der als 'gesichert' bezeichneten Leyline-Verbindungen, die vom Ippinger Riesen ausgeht." },
+      { name: "Ippinger Riese", country: "Ippingen, Gemeinde Immendingen, Baden-Württemberg", lat: 47.9831, lng: 8.6700,
+        desc: "2014 entdeckter Fünffach-Leylinienknoten auf der Baar – eine seltene Konstellation, wie sie sonst nur bei Stonehenge beschrieben wird. Das Gebäude war einst das größte der Region, vermutlich eine Templer-Komturei über einem keltischen Heiligtum. Kaiser Karl der Dicke wählte Ippingen als Alterssitz. Lokal verbindet der Ort Burg Honberg (Tuttlingen), Burg Hohenlupfen, Burg Zindelstein und Kloster Amtenhausen; überregional sollen die Leylines direkt auf Freiburg, Trier und Mailand zielen." },
+      { name: "Ulmer Münster", country: "Ulm, Baden-Württemberg", lat: 48.3974, lng: 9.9928,
+        desc: "Kirche mit dem höchsten Kirchturm der Welt. Am Münster werden aktiv geomantische Führungen zu Drachen-, Engels- und Planetenkräften sowie zu Leylines angeboten. Wichtiger Hinweis: Die Verbindung zum Ippinger Riesen wird in den Quellen als 'anzunehmen', nicht als gesichert bezeichnet." }
+    ]
+  },
+  {
+    id: "rosenlinie",
+    name: "Rosenlinie – Bugarach",
+    region: "Paris → Okzitanien, Frankreich",
+    color: "#c2447a",
+    defaultOn: true,
+    sites: [
+      { name: "Saint-Sulpice", country: "Paris, Frankreich", lat: 48.8514, lng: 2.3347,
+        desc: "Kirche in Paris, durch die der Pariser Meridian ('Rosenlinie') verläuft – bekannt geworden u.a. durch 'Sakrileg' (The Da Vinci Code)." },
+      { name: "Rennes-le-Château", country: "Aude, Okzitanien, Frankreich", lat: 42.9236, lng: 2.2611,
+        desc: "Der 'Yang'-Ort im geomantischen Pentagramm der Region. Berühmt durch Abbé Bérenger Saunière und die Legenden um verborgene Schätze, eng verwoben mit Katharer- und Templerüberlieferung." },
+      { name: "Pic de Bugarach", country: "Aude, Okzitanien, Frankreich", lat: 42.8367, lng: 2.3961,
+        desc: "Gilt als 'energetisch invertierter' Berg des Pentagramms. Geologisch tatsächlich bemerkenswert: Durch eine tektonische Deckenüberschiebung liegen hier ältere Gesteinsschichten über jüngeren – ein realer geologischer Befund, der die mystische Aufladung des Berges zusätzlich befeuert hat. Rosenlinie und Pentagramm-Zuschreibung sind Teil der modernen Rennes-le-Château-Mythologie (u.a. 'Der Heilige Gral und seine Erben')." }
+    ]
+  },
+  {
+    id: "jungfrau",
+    name: "Kathedralen-Sternbild Jungfrau",
+    region: "Nordfrankreich",
+    color: "#5b7fc4",
+    defaultOn: true,
+    sites: [
+      { name: "Étampes", country: "Frankreich", lat: 48.4344, lng: 2.1614,
+        desc: "Wichtiger Hinweis zu dieser ganzen Gruppe: Zehn gotischen Marienkathedralen Nordfrankreichs wird nachgesagt, in ihrer räumlichen Anordnung das Sternbild Jungfrau (Virgo) auf der Erde nachzubilden – jede Kathedrale soll einem Stern entsprechen. Die hier gezeichnete Verbindungslinie ist meine eigene, geographisch sinnvolle Reihenfolge zur Visualisierung – die genaue Stern-zu-Kathedrale-Zuordnung und die daraus resultierende exakte Verbindungsfigur nennen die Quellen nicht eindeutig." },
+      { name: "Kathedrale von Chartres", country: "Frankreich", lat: 48.4479, lng: 1.4880,
+        desc: "Soll dem Stern Porrima (Gamma Virginis) entsprechen. Errichtet über einer keltischen Kultstätte mit heiliger Quelle, die noch heute in der Krypta liegt. Gilt als eines der bedeutendsten Energiezentren Europas." },
+      { name: "Kathedrale von Évreux", country: "Frankreich", lat: 49.0245, lng: 1.1509, desc: "" },
+      { name: "Kathedrale von Bayeux", country: "Frankreich", lat: 49.2764, lng: -0.7024, desc: "" },
+      { name: "Kathedrale von Rouen", country: "Frankreich", lat: 49.4404, lng: 1.0939, desc: "" },
+      { name: "Abbeville", country: "Frankreich", lat: 50.1058, lng: 1.8347, desc: "" },
+      { name: "Kathedrale von Amiens", country: "Frankreich", lat: 49.8942, lng: 2.2957,
+        desc: "Größte gotische Kathedrale Frankreichs nach Innenvolumen." },
+      { name: "Kathedrale von Laon", country: "Frankreich", lat: 49.5641, lng: 3.6208, desc: "" },
+      { name: "Kathedrale von Reims", country: "Frankreich", lat: 49.2534, lng: 4.0334,
+        desc: "Krönungskirche der französischen Könige." },
+      { name: "Notre-Dame de Paris", country: "Frankreich", lat: 48.8530, lng: 2.3499, desc: "" }
+    ]
+  },
+  {
+    id: "himmelsscheibe",
+    name: "Himmelsscheibe-Sichtachse",
+    region: "Sachsen-Anhalt/Harz, Deutschland",
+    color: "#d4af37",
+    defaultOn: true,
+    sites: [
+      { name: "Brocken", country: "Harz, Sachsen-Anhalt", lat: 51.7991, lng: 10.6180,
+        desc: "Höchster Berg des Harzes. Vom Mittelberg aus gesehen markiert er den Punkt, an dem die Sonne zur Sommersonnenwende untergeht – archäologisch belegt, keine esoterische Zuschreibung." },
+      { name: "Kyffhäuser", country: "Thüringen/Sachsen-Anhalt", lat: 51.4234, lng: 11.0973,
+        desc: "Trägt dieselbe 'schlafender Kaiser'-Sagenmotivik wie der Untersberg: Der Überlieferung nach schläft hier Kaiser Friedrich Barbarossa im Berg und wird eines Tages erwachen." },
+      { name: "Mittelberg bei Nebra", country: "Sachsen-Anhalt, Deutschland", lat: 51.3453, lng: 11.4536,
+        desc: "Fundort der Himmelsscheibe von Nebra (1999), der ältesten konkreten Himmelsdarstellung der Welt (3700–4100 Jahre alt). Wichtiger Hinweis: Anders als bei den übrigen Punkten dieser Karte handelt es sich hier um eine archäologisch nachgewiesene astronomische Ausrichtung – die goldenen Horizontbögen der Scheibe korrespondieren exakt mit den Sichtlinien zu Brocken und Kyffhäuser –, nicht um eine esoterische Leylinien-Kreuzung." }
+    ]
+  },
+  {
+    id: "externsteine-west",
+    name: "Externsteine-Westlinie",
+    region: "Nordrhein-Westfalen/Eifel, Deutschland",
+    color: "#6b7a4a",
+    defaultOn: true,
+    sites: [
+      { name: "Externsteine", country: "Teutoburger Wald, Deutschland", lat: 51.8637, lng: 8.9192, desc: "" },
+      { name: "Paderquellen", country: "Paderborn, Deutschland", lat: 51.7189, lng: 8.7575,
+        desc: "Die über 200 Karstquellen der Pader, kürzester Fluss Deutschlands – seit jeher als Kraftort verehrt." },
+      { name: "Balver Höhle", country: "Sauerland, Deutschland", lat: 51.3611, lng: 7.8919,
+        desc: "Eine der größten Höhlen Deutschlands, seit der Altsteinzeit von Menschen genutzt." },
+      { name: "Laacher See / Abtei Maria Laach", country: "Vulkaneifel, Deutschland", lat: 50.4128, lng: 7.2664,
+        desc: "Vulkansee mit der bedeutenden romanischen Benediktinerabtei Maria Laach am Ufer – von den Mönchen selbst als 'Kraftort' beschrieben, an dem seit über 900 Jahren gebetet wird." },
+      { name: "Lydiaturm", country: "Vulkaneifel, Deutschland", lat: 50.4028, lng: 7.2333,
+        desc: "Aussichtsturm mit Panoramablick über die Vulkaneifel, Endpunkt dieser Linie." }
+    ]
+  },
+  {
+    id: "fenzl-bayern",
+    name: "Bayerische Kraftlinie (nach Fenzl)",
+    region: "Oberbayern, Deutschland",
+    color: "#2f6b6b",
+    defaultOn: true,
+    sites: [
+      { name: "Kloster Wessobrunn", country: "Oberbayern, Deutschland", lat: 47.9028, lng: 11.0864,
+        desc: "Der Münchner Germanist und Theologe Dr. Fritz Fenzl beschreibt ein bayerisches Erdgitternetz aus Kraftlinien ('Drachenpfade') und nennt Wessobrunn, St. Ottilien und Altötting explizit als Orte auf solchen Kraftpunkten." },
+      { name: "Kloster St. Ottilien", country: "Oberbayern, Deutschland", lat: 48.0806, lng: 11.1067, desc: "" },
+      { name: "Altötting (Gnadenkapelle)", country: "Oberbayern, Deutschland", lat: 48.2258, lng: 12.6767,
+        desc: "Bedeutendster bayerischer Wallfahrtsort mit der Schwarzen Madonna, vermutlich bereits keltisches Kultzentrum. Königssitz Karlmanns, des Enkels Karls des Großen, ab 865 n.Chr." }
+    ]
+  },
+  {
+    id: "stonehenge-rom-gizeh",
+    name: "Stonehenge-Rom-Gizeh-Achse",
+    region: "England → Italien → Ägypten",
+    color: "#7a8a3a",
+    defaultOn: true,
+    sites: [
+      { name: "Stonehenge", country: "Wiltshire, England", lat: 51.1789, lng: -1.8262,
+        desc: "Ausgangspunkt einer der von Stonehenge ausgehenden Leylines, die südöstlich über den europäischen Kontinent verlaufen soll." },
+      { name: "Rom", country: "Italien", lat: 41.9028, lng: 12.4964,
+        desc: "Zwischenstation der Achse – wie viele antike Kultstätten seit der Antike auf älteren Heiligtümern und Kreuzungspunkten errichtet." },
+      { name: "Gizeh (Pyramiden) / Tal der Könige", country: "Ägypten", lat: 29.9792, lng: 31.1342,
+        desc: "Postulierter Endpunkt der Achse, in manchen Quellen noch präzisiert bis ins Tal der Könige bei Luxor." }
+    ]
+  },
+  {
+    id: "externsteine-gibraltar",
+    name: "Externsteine-Gibraltar-Achse",
+    region: "Deutschland → Spanien → Gibraltar",
+    color: "#4a7a8a",
+    defaultOn: true,
+    sites: [
+      { name: "Externsteine", country: "Teutoburger Wald, Deutschland", lat: 51.8637, lng: 8.9192,
+        desc: "Ausgangspunkt dieser dritten, südwestlich verlaufenden Externsteine-Linie (neben der Ägypten-Achse und der Westlinie)." },
+      { name: "Madrid", country: "Spanien", lat: 40.4168, lng: -3.7038,
+        desc: "Als 'weiter entfernter Referenzpunkt' der Linie genannt. Geometrischer Hinweis: Eine Nachrechnung zeigt, dass Madrid mit ca. 188 km Abweichung etwas näher an einer gedachten Geraden zwischen Externsteine und Gibraltar liegt als etwa Ávila (ca. 291 km) – beide liegen aber spürbar abseits einer exakten Linie." },
+      { name: "Gibraltar", country: "Britisches Überseegebiet", lat: 36.1408, lng: -5.3536,
+        desc: "Postulierter Endpunkt mit der höchsten Übereinstimmung zur Externsteine-Achse. Lanzarote wird in manchen Quellen als weitere, aber ausdrücklich nur symbolisch (Atlantis-Bezug) verstandene Fortsetzung genannt." }
+    ]
+  },
+  {
+    id: "chakren-europa",
+    name: "Chakren-Linie Europas",
+    region: "Frankreich → Schottland (nach Marianne Quast)",
+    color: "#9c3a6b",
+    defaultOn: true,
+    noBuffer: true,
+    sites: [
+      { name: "Saintes-Maries-de-la-Mer", country: "Camargue, Frankreich", lat: 43.4522, lng: 4.4283,
+        desc: "Startpunkt der 'Chakren-Linie Europas' nach der Geomantin Marianne Quast (quastrologie.de). Hinweis: Dies ist als reine Verbindungslinie der genannten Orte gedacht, nicht als Energielinie mit Pufferzone – daher hier bewusst ohne Pufferzone dargestellt." },
+      { name: "Puy de Dôme", country: "Auvergne, Frankreich", lat: 45.7719, lng: 2.9658, desc: "" },
+      { name: "Bourges", country: "Frankreich", lat: 47.0810, lng: 2.3988, desc: "" },
+      { name: "Chartres", country: "Frankreich", lat: 48.4479, lng: 1.4880, desc: "" },
+      { name: "London", country: "England", lat: 51.5074, lng: -0.1278, desc: "" },
+      { name: "Great Whernside", country: "Yorkshire Dales, England", lat: 54.1650, lng: -1.9863, desc: "" },
+      { name: "Edinburgh", country: "Schottland", lat: 55.9533, lng: -3.1883, desc: "" },
+      { name: "Ben More Assynt", country: "Sutherland, Schottland", lat: 58.1194, lng: -4.8508,
+        desc: "Nördlicher Endpunkt der Chakren-Linie Europas." }
+    ]
+  },
+  {
+    id: "alchemie-kathedralen",
+    name: "Alchemistische Kathedralen-Trilogie",
+    region: "Loire-Tal → Berry, Frankreich",
+    color: "#a54040",
+    defaultOn: true,
+    noBuffer: true,
+    sites: [
+      { name: "Chartres (Vierge bleue)", country: "Frankreich", lat: 48.4479, lng: 1.4880,
+        desc: "Nach Claudine Léturgie Blanquart ('La spiritualité universelle de 3 cathédrales alchimiques') die erste Stufe einer alchemistischen Dreiheit aus Chartres, Tours und Bourges – benannt nach der 'blauen Jungfrau' der berühmten Chartres-Fenster." },
+      { name: "Tours (Saint-Gatien)", country: "Frankreich", lat: 47.3941, lng: 0.6848,
+        desc: "Die zweite Stufe: das 'Weiße Werk' – ein Ort der fortschreitenden Reinigung und Illumination auf dem Weg zwischen Schatten und Licht." },
+      { name: "Bourges (Vierge rouge)", country: "Frankreich", lat: 47.0810, lng: 2.3988,
+        desc: "Die dritte und höchste Stufe: das 'Œuvre au Rouge', die Vollendung des Großen Werks – die 'mystische Hochzeit' von Materie und Geist. Bourges (das antike römische Avaricum) war zudem eine der ersten christlichen Gemeinden Galliens; die Kathedrale steht auf einem seit dem 3. Jahrhundert n.Chr. durchgehend religiös genutzten Platz." }
+    ]
+  },
+  {
+    id: "odilienberg-vogesen",
+    name: "Odilienberg-Vogesen-Netz",
+    region: "Elsass, Frankreich",
+    color: "#6b8a4a",
+    defaultOn: true,
+    sites: [
+      { name: "Donon", country: "Vogesen, Elsass", lat: 48.5119, lng: 7.1364,
+        desc: "Markanter Vogesengipfel mit gallo-römischem Tempel auf dem Gipfel, seit der Antike Kultstätte." },
+      { name: "Odilienberg (Mont Sainte-Odile)", country: "Elsass, Frankreich", lat: 48.4306, lng: 7.4067,
+        desc: "Bedeutendster Wallfahrtsort des Elsass, gekrönt vom Kloster Hohenburg (7. Jh., hl. Odilia). Die fast 11 km lange, bis zu 2000 v.Chr. zurückreichende 'Heidenmauer' umschließt das Plateau. Die Engelskapelle ist dem Erzengel Michael geweiht. Über den Berg sollen mehrere Leylines verlaufen, die sowohl lokale Kraftorte (Donon, Taennchel, Grand Ballon) als auch entfernte Stätten (Externsteine, Mont-Saint-Michel) verbinden." },
+      { name: "Taennchel", country: "Vogesen, Elsass", lat: 48.2601, lng: 7.2119,
+        desc: "Vogesengipfel mit zahlreichen Menhiren und Felsformationen, denen besondere Energie zugeschrieben wird." },
+      { name: "Grand Ballon", country: "Vogesen, Elsass", lat: 47.9086, lng: 7.0989,
+        desc: "Höchster Gipfel der Vogesen (1424 m), südlicher Endpunkt dieses regionalen Netzes." }
+    ]
+  },
+  {
+    id: "odilienberg-fern",
+    name: "Odilienberg-Fernlinie",
+    region: "Deutschland → Elsass → Bretagne",
+    color: "#b08a4a",
+    defaultOn: true,
+    sites: [
+      { name: "Externsteine", country: "Teutoburger Wald, Deutschland", lat: 51.8637, lng: 8.9192, desc: "" },
+      { name: "Odilienberg (Mont Sainte-Odile)", country: "Elsass, Frankreich", lat: 48.4306, lng: 7.4067,
+        desc: "Hub dieser Fernlinie – die Verbindung zu den Externsteinen wird u.a. durch die Ähnlichkeit der Merowinger-Gräber am Odilienberg mit dem Sargstein an den Externsteinen begründet." },
+      { name: "Mont-Saint-Michel", country: "Normandie, Frankreich", lat: 48.6361, lng: -1.5115,
+        desc: "Die vom Odilienberg ausgehende Verbindung zum Mont-Saint-Michel – deiner Vermutung nach über die Michaelskapelle des Odilienbergs. Beide Orte teilen die Michaelsverehrung; der Mont-Saint-Michel ist zugleich Teil der großen St.-Michael-Linie." }
+    ]
+  }
+];
+
+// ===================================================================
+// Einzelne Kraftorte ohne Linienverbindung
+// ===================================================================
+const POINTS = [
+  {
+    id: "poi-untersberg",
+    name: "Untersberg",
+    country: "Bayern/Salzburg, Grenzgebiet",
+    lat: 47.7175, lng: 13.0122,
+    color: "#b05fa0",
+    defaultOn: true,
+    desc: "\"Herzchakra Europas\": An der Mittagsscharte des Untersbergs sollen sich laut einer Quelle sogar 12 Leylines kreuzen, die sich durch ganz Europa ziehen. Reiche Sagentradition (Kaiser-Karl-Sage, Wilde-Jagd-Mythos)."
+  },
+  {
+    id: "poi-karlsruhe",
+    name: "Karlsruhe (Schloss)",
+    country: "Baden-Württemberg, Deutschland",
+    lat: 49.0136, lng: 8.4043,
+    color: "#3d7a5c",
+    defaultOn: true,
+    desc: "Seltene Fünffach-Leylinienkreuzung, wie sie auch Aachen zugeschrieben wird. Mit realem Hintergrund: Karlsruhe wurde im 18. Jh. bewusst fächerförmig um das Residenzschloss als geomantisch durchdachte Planstadt angelegt – 32 Straßen strahlen sternförmig vom Schlossturm aus."
+  },
+  {
+    id: "poi-vogelhof",
+    name: "Vogelhof bei Erbstetten",
+    country: "Schwäbische Alb, Baden-Württemberg",
+    lat: 48.4667, lng: 9.6833,
+    color: "#a06a2e",
+    defaultOn: true,
+    desc: "Postulierter Kreuzungspunkt mehrerer Leylines auf der Schwäbischen Alb – manche Quellen nennen fünf Linien, andere finden nur drei. Quellenlage uneinheitlich und die genaue Lage nicht exakt verifiziert. Praktisch vor deiner Haustür."
+  },
+  {
+    id: "poi-mirnock",
+    name: "Mirnock",
+    country: "Kärnten, Österreich",
+    lat: 46.7208, lng: 13.8686,
+    color: "#4a6fa5",
+    defaultOn: true,
+    desc: "\"Weltenberg\" und ehemaliger Kultplatz, beschrieben als Ley-Center, an dem sich bedeutende Linien kreuzen. Erreichbar über den Wanderweg \"Himmelstreppe\" (Scala Paradisi) mit weiteren mystischen Stationen wie dem siebenstämmigen Baumheiligtum und einem Menhir."
+  },
+  {
+    id: "poi-renneslesbains",
+    name: "Rennes-les-Bains",
+    country: "Aude, Okzitanien, Frankreich",
+    lat: 42.9083, lng: 2.3319,
+    color: "#7a4a9c",
+    defaultOn: true,
+    desc: "Der 'Yin'-Gegenpart zu Rennes-le-Château im geomantischen Pentagramm der Region, mit heißen Quellen und mystisch aufgeladenen Orten wie dem 'Teufelsstuhl' und der 'Fontaine des Amours'."
+  },
+  {
+    id: "poi-saintebaume",
+    name: "Grotte de la Sainte-Baume",
+    country: "Provence, Frankreich",
+    lat: 43.3325, lng: 5.9503,
+    color: "#5c8a6a",
+    defaultOn: true,
+    desc: "Der Überlieferung nach Rückzugsort und Sterbeort Maria Magdalenas. Wird gemeinsam mit Rennes-le-Château und Bugarach als Teil eines südfranzösischen Netzwerks heiliger Orte genannt."
+  },
+  {
+    id: "poi-lepuy",
+    name: "Le Puy-en-Velay",
+    country: "Auvergne, Frankreich",
+    lat: 45.0430, lng: 3.8850,
+    color: "#8a6a3a",
+    defaultOn: true,
+    desc: "Traditioneller Ausgangspunkt des Jakobswegs (Via Podiensis) und bedeutender Wallfahrtsort mit der Kathedrale Notre-Dame und der Kapelle Saint-Michel d'Aiguilhe auf einem vulkanischen Felsen."
+  },
+  {
+    id: "poi-stonehenge",
+    name: "Stonehenge",
+    country: "Wiltshire, England",
+    lat: 51.1789, lng: -1.8262,
+    color: "#9c6b4a",
+    defaultOn: true,
+    desc: "Der Klassiker unter den Leylinien-Kreuzungen: Hier sollen sich fünf Leylines treffen – dieselbe seltene Konstellation wie beim Ippinger Riesen. Bronzezeitlicher Steinkreis mit nachgewiesener Ausrichtung auf den Sonnenaufgang zur Sommersonnwende."
+  },
+  {
+    id: "poi-carnac",
+    name: "Carnac",
+    country: "Bretagne, Frankreich",
+    lat: 47.5966, lng: -3.0783,
+    color: "#6b8f9c",
+    defaultOn: true,
+    desc: "Tausende Menhire in langen Steinreihen – das berühmteste Beispiel für 'Lithopunktur': die Vorstellung, dass Steine gezielt auf Energiepunkten platziert wurden, um den Fluss der Erdenergie zu lenken."
+  },
+  {
+    id: "poi-druidenhain",
+    name: "Druidenhain",
+    country: "Wohlmannsgesees, Fränkische Schweiz, Bayern",
+    lat: 49.8894, lng: 11.3339,
+    color: "#5a9c6b",
+    defaultOn: true,
+    desc: "Das 'fränkische Stonehenge': ein Fels-Labyrinth aus moosbewachsenen Dolomitblöcken, vermutlich ein keltischer Druiden-Kultplatz. Liegt nur wenige Kilometer von Jungfernhöhle und Esper-Höhle entfernt, die bereits auf deiner Externsteine-Ägypten-Achse liegen."
+  },
+  {
+    id: "poi-newgrange",
+    name: "Newgrange",
+    country: "County Meath, Irland",
+    lat: 53.6947, lng: -6.4755,
+    color: "#c49a3a",
+    defaultOn: true,
+    desc: "Megalithisches Ganggrab, älter als Stonehenge und die Pyramiden von Gizeh. Wichtiger Unterschied zu den anderen Punkten hier: Die Ausrichtung ist archäologisch nachgewiesen (zur Wintersonnwende flutet Sonnenlicht exakt die Grabkammer) – eine astronomische Ausrichtung, keine esoterische Leylinien-Kreuzung im eigentlichen Sinne."
+  },
+  {
+    id: "poi-varallo",
+    name: "Sacro Monte di Varallo",
+    country: "Piemont, Italien",
+    lat: 45.8181, lng: 8.2661,
+    color: "#7a5c9c",
+    defaultOn: true,
+    desc: "Ältester und bedeutendster der neun UNESCO-Sacri-Monti im Piemont, im Sesia-Tal an den Alpenausläufern. Laut eigener Fachliteratur zur Geobiologie sollen hier zwölf unterirdische Wasseradern und eine sogenannte 'linea sincronica' (Synchronlinie) verlaufen."
+  },
+  {
+    id: "poi-oropa",
+    name: "Sacro Monte di Oropa",
+    country: "Piemont, Italien",
+    lat: 45.6117, lng: 7.9611,
+    color: "#4a8a7a",
+    defaultOn: true,
+    desc: "Wallfahrtsort oberhalb von Biella in einem natürlichen Talkessel der Voralpen, nach Feng-Shui-Prinzipien als besonders harmonisch beschrieben – die Aufteilung in durch Tore getrennte Bereiche erinnert an die Verbotene Stadt in Peking."
+  },
+  {
+    id: "poi-ghiffa",
+    name: "Sacro Monte di Ghiffa",
+    country: "Piemont, Italien",
+    lat: 45.9319, lng: 8.6169,
+    color: "#3a7ca5",
+    defaultOn: true,
+    desc: "Am Lago Maggiore gelegen; der Überlieferung nach treffen sich hier vier Winde (Montagnino, Tramontana, Invernone, Inverno) – eine Lage, die der Anlage besondere Energie von Berg und Wasser zugleich verleihen soll."
+  },
+  {
+    id: "poi-damanhur",
+    name: "Damanhur",
+    country: "Piemont, Italien (Canavese)",
+    lat: 45.4167, lng: 7.7833,
+    color: "#c46a3a",
+    defaultOn: true,
+    desc: "Aktive esoterische Gemeinschaft, gegründet von Oberto Airaudi, berühmt für ihre unterirdischen 'Tempel der Menschheit'. Airaudi wählte den Standort bewusst als Kreuzungspunkt mehrerer von ihm postulierter 'linee sincroniche' (Synchronlinien) – eine moderne, aktiv gelebte Version des Leyline-Konzepts. Kann besichtigt werden."
+  },
+  {
+    id: "poi-gernrode",
+    name: "Stiftskirche St. Cyriakus, Gernrode",
+    country: "Sachsen-Anhalt, Deutschland (Harz)",
+    lat: 51.7228, lng: 11.1417,
+    color: "#8a6f47",
+    defaultOn: true,
+    desc: "Ersterwähnt 961 – gilt als einziges nahezu unverändert erhaltenes Bauwerk der gesamten ottonischen Zeit in Deutschland. Birgt die älteste Krypta dieser Epoche und die älteste Nachbildung des Heiligen Grabes in Deutschland."
+  },
+  {
+    id: "poi-jerichow",
+    name: "Kloster Jerichow",
+    country: "Sachsen-Anhalt, Deutschland",
+    lat: 52.4794, lng: 11.9522,
+    color: "#a0522d",
+    defaultOn: true,
+    desc: "Ältester Backsteinbau Norddeutschlands – eine der ursprünglichsten romanischen Klosteranlagen überhaupt, mit verschiedenen weitgehend unveränderten romanischen Innenräumen."
+  },
+  {
+    id: "poi-koenigslutter",
+    name: "Kaiserdom Königslutter",
+    country: "Niedersachsen, Deutschland",
+    lat: 52.2536, lng: 10.8189,
+    color: "#6b6b8a",
+    defaultOn: true,
+    desc: "Grablege Kaiser Lothars III., gegründet 1135. Der erhaltene Kreuzgang zeigt Kapitelle, die zu den Meisterwerken romanischer Bauplastik in Deutschland zählen."
+  },
+  {
+    id: "poi-quedlinburg",
+    name: "Stiftskirche St. Servatius, Quedlinburg",
+    country: "Sachsen-Anhalt, Deutschland",
+    lat: 51.7897, lng: 11.1381,
+    color: "#9c7a4a",
+    defaultOn: true,
+    desc: "Hochromanische Basilika, geweiht 1129, UNESCO-Welterbe. Gegründet 936 von Otto I. als königliches Damenstift zum Totengedenken an seinen Vater Heinrich I. Bedeutender Domschatz und Krypta mit den Gräbern Heinrichs I. und seiner Frau Mathilde."
+  },
+  {
+    id: "poi-acquiterme",
+    name: "Acqui Terme",
+    country: "Piemont, Italien",
+    lat: 44.6773, lng: 8.4695,
+    color: "#5a9c9c",
+    defaultOn: true,
+    desc: "Wichtiger Hinweis: Keine dokumentierte Leyline-Zuschreibung gefunden – hier kreuzen sich auf der Karte lediglich mehrere Linien geometrisch, da sie alle in ähnliche Richtung nach Italien verlaufen. Der Ort selbst ist aber unabhängig davon bemerkenswert: Die schwefelhaltige, 75°C heiße Thermalquelle 'La Bollente' mitten im Stadtzentrum wurde bereits im Neolithikum (5500–3500 v.Chr.) genutzt. Die Römer bauten hier 'Aquae Statiellae' mit 13 km langem Aquädukt; Plinius der Ältere zählte die Thermen zu den besten des Reiches."
+  },
+  {
+    id: "poi-disibodenberg",
+    name: "Disibodenberg",
+    country: "Rheinland-Pfalz, Deutschland",
+    lat: 49.8058, lng: 7.6417,
+    color: "#7a9c5a",
+    defaultOn: true,
+    desc: "Wichtiger Hinweis: Mehrere geomantische Quellen schreiben explizit, dass sie hier 'keine Hinweise auf Leys' finden – dennoch ein bedeutender Kraftort mit klassischer Schichtung: Die Kelten wählten den Bergrücken an der Mündung von Glan und Nahe als heilige Stätte, die Römer errichteten dort einen Jupitertempel, um 640 n.Chr. ließ sich der irisch-schottische Wandermönch Disibod nieder. Hildegard von Bingen verbrachte hier den längsten Teil ihres Lebens, verfasste ihr Hauptwerk 'Scivias' und leitete ab 1136 den Frauenkonvent. Heute: 'Weg der Stille' mit Meditationstafeln und ein Labyrinth."
+  },
+  {
+    id: "poi-heiligenberg",
+    name: "Heiligenberg (Heidelberg)",
+    country: "Baden-Württemberg, Deutschland",
+    lat: 49.4178, lng: 8.6969,
+    color: "#9c7a5a",
+    defaultOn: true,
+    desc: "Keine dokumentierte Leyline-Zuschreibung gefunden, aber ein außergewöhnlich dichter Kraftort: älteste Siedlungsspuren aus dem Neolithikum (5500 v.Chr.), im 5.-3. Jh. v.Chr. ein keltisches Oppidum mit doppeltem Ringwall über 5 km Länge, danach ein römischer Tempel. 1023 n.Chr. wurde darüber die Basilika und das Kloster St. Michael errichtet – wieder eine dem Erzengel Michael geweihte Kirche über einem vorchristlichen Kultplatz, wie schon bei Odilienberg und Externsteinen. Dazu das mysteriöse 56 Meter tiefe 'Heidenloch' und eine Thingstätte."
+  }
+];
+
+// ===================================================================
+// Sidebar-Menü: auf schmalen Bildschirmen (Handy) standardmäßig eingeklappt
+// ===================================================================
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+
+if (window.matchMedia('(max-width: 700px)').matches) {
+  sidebar.classList.add('collapsed');
+}
+
+sidebarToggle.addEventListener('click', function() {
+  sidebar.classList.toggle('collapsed');
+});
+
+// ===================================================================
+// Karte initialisieren
+// ===================================================================
+const map = L.map('map', { zoomControl:false, preferCanvas:true }).setView([46, 8], 4);
+L.control.zoom({ position:'topright' }).addTo(map);
+
+const streetLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri', maxZoom: 19
+});
+const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri', maxZoom: 19
+});
+const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenTopoMap (CC-BY-SA)', maxZoom: 17
+});
+streetLayer.addTo(map);
+
+document.getElementById('btn-street').onclick = () => switchLayer(streetLayer, 'btn-street');
+document.getElementById('btn-sat').onclick = () => switchLayer(satLayer, 'btn-sat');
+document.getElementById('btn-terrain').onclick = () => switchLayer(terrainLayer, 'btn-terrain');
+let currentTileLayer = streetLayer;
+function switchLayer(layer, btnId) {
+  map.removeLayer(currentTileLayer);
+  layer.addTo(map);
+  currentTileLayer = layer;
+  document.querySelectorAll('.layer-toggle button').forEach(b => b.classList.remove('active'));
+  document.getElementById(btnId).classList.add('active');
+}
+
+// ===================================================================
+// Farbe in rgba mit gegebener Opazität umwandeln
+// ===================================================================
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16), g = parseInt(hex.slice(3,5), 16), b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+const bufferOpacities = [
+  { km: 5, alpha: 0.13 },
+  { km: 1, alpha: 0.26 }
+];
+
+// ===================================================================
+// Für jede Linie: Layergroup mit Pufferzonen, Linie und Markern bauen
+// ===================================================================
+let allBounds = [];
+
+LINES.forEach(line => {
+  const group = L.layerGroup();
+  const latlngs = line.sites.map(s => [s.lat, s.lng]);
+  allBounds = allBounds.concat(latlngs);
+
+  // Pufferzonen (von außen nach innen gezeichnet) - übersprungen, wenn line.noBuffer gesetzt ist
+  if (!line.noBuffer) {
+  bufferOpacities.forEach(level => {
+    const fillColor = hexToRgba(line.color, level.alpha);
+    for (let i = 0; i < line.sites.length - 1; i++) {
+      const A = line.sites[i], B = line.sites[i+1];
+      const brgAB = bearing(A.lat, A.lng, B.lat, B.lng);
+      const left = brgAB - Math.PI/2, right = brgAB + Math.PI/2;
+      const aLeft = destination(A.lat, A.lng, left, level.km);
+      const bLeft = destination(B.lat, B.lng, left, level.km);
+      const bRight = destination(B.lat, B.lng, right, level.km);
+      const aRight = destination(A.lat, A.lng, right, level.km);
+      L.polygon([aLeft, bLeft, bRight, aRight], {
+        stroke:false, fillColor, fillOpacity:1
+      }).addTo(group);
+    }
+    line.sites.forEach(s => {
+      L.circle([s.lat, s.lng], { radius: level.km*1000, stroke:false, fillColor, fillOpacity:1 }).addTo(group);
+    });
+  });
+  }
+
+  // Linie selbst
+  L.polyline(latlngs, { color: line.color, weight:3, dashArray:'8,6', opacity:0.9 }).addTo(group);
+
+  // Marker
+  line.sites.forEach(s => {
+    const marker = L.circleMarker([s.lat, s.lng], {
+      radius:7, fillColor: line.color, color:'#fff', weight:2, fillOpacity:0.95
+    }).addTo(group);
+    marker.bindPopup(`
+      <div class="site-popup">
+        <h3>${s.name}</h3>
+        <p><i>${s.country}</i> · <span style="color:${line.color}; font-weight:600;">${line.name}</span></p>
+        ${s.desc ? `<p>${s.desc}</p>` : ''}
+        <p class="coords">${s.lat.toFixed(4)}°, ${s.lng.toFixed(4)}°</p>
+      </div>
+    `);
+    // Feste deutsche Beschriftung direkt auf der Karte, unabhängig von der Sprache der Kartenkacheln
+    marker.bindTooltip(s.name, {
+      permanent: true, direction: 'top', offset: [0, -6], className: 'site-label'
+    });
+  });
+
+  line._layerGroup = group;
+  if (line.defaultOn) group.addTo(map);
+});
+
+// Karte auf Gesamtausdehnung aller Linien zoomen
+map.fitBounds(allBounds, { padding: [40, 40] });
+
+// ===================================================================
+// Einzelne Kraftorte rendern (eigene Pufferzonen, aber keine Segmentlinie)
+// ===================================================================
+POINTS.forEach(poi => {
+  const group = L.layerGroup();
+
+  bufferOpacities.forEach(level => {
+    const fillColor = hexToRgba(poi.color, level.alpha);
+    L.circle([poi.lat, poi.lng], { radius: level.km*1000, stroke:false, fillColor, fillOpacity:1 }).addTo(group);
+  });
+
+  const marker = L.circleMarker([poi.lat, poi.lng], {
+    radius:8, fillColor: poi.color, color:'#fff', weight:2, fillOpacity:0.95
+  }).addTo(group);
+  marker.bindPopup(`
+    <div class="site-popup">
+      <h3>${poi.name}</h3>
+      <p><i>${poi.country}</i> · <span style="color:${poi.color}; font-weight:600;">Einzelner Kraftort</span></p>
+      <p>${poi.desc}</p>
+      <p class="coords">${poi.lat.toFixed(4)}°, ${poi.lng.toFixed(4)}°</p>
+    </div>
+  `);
+  marker.bindTooltip(poi.name, { permanent: true, direction: 'top', offset: [0, -6], className: 'site-label' });
+
+  poi._layerGroup = group;
+  if (poi.defaultOn) group.addTo(map);
+});
+
+// ===================================================================
+// Checkboxen für einzelne Kraftorte erzeugen
+// ===================================================================
+const pointsContainer = document.getElementById('points-checkboxes');
+POINTS.forEach(poi => {
+  const row = document.createElement('label');
+  row.className = 'line-row';
+  row.innerHTML = `
+    <input type="checkbox" ${poi.defaultOn ? 'checked' : ''} data-poi-id="${poi.id}">
+    <span class="line-swatch" style="background:${poi.color}; height:10px; border-radius:50%;"></span>
+    <span class="label-text"><b>${poi.name}</b><span>${poi.country}</span></span>
+  `;
+  pointsContainer.appendChild(row);
+});
+pointsContainer.addEventListener('change', function(e) {
+  const id = e.target.getAttribute('data-poi-id');
+  const poi = POINTS.find(p => p.id === id);
+  if (!poi) return;
+  if (e.target.checked) { poi._layerGroup.addTo(map); }
+  else { map.removeLayer(poi._layerGroup); }
+});
+
+// ===================================================================
+// Checkboxen zum Ein-/Ausblenden der Linien erzeugen
+// ===================================================================
+const checkboxContainer = document.getElementById('lines-checkboxes');
+LINES.forEach(line => {
+  const row = document.createElement('label');
+  row.className = 'line-row';
+  row.innerHTML = `
+    <input type="checkbox" ${line.defaultOn ? 'checked' : ''} data-line-id="${line.id}">
+    <span class="line-swatch" style="background:${line.color};"></span>
+    <span class="label-text"><b>${line.name}</b><span>${line.region}</span></span>
+  `;
+  checkboxContainer.appendChild(row);
+});
+checkboxContainer.addEventListener('change', function(e) {
+  const id = e.target.getAttribute('data-line-id');
+  const line = LINES.find(l => l.id === id);
+  if (!line) return;
+  if (e.target.checked) { line._layerGroup.addTo(map); }
+  else { map.removeLayer(line._layerGroup); }
+});
+
+// ===================================================================
+// Klick-Interaktion: Abstand zu jeder AKTIVEN Linie berechnen
+// ===================================================================
+let clickMarker = null;
+map.on('click', function(e) {
+  const { lat, lng } = e.latlng;
+
+  if (clickMarker) map.removeLayer(clickMarker);
+  clickMarker = L.marker([lat, lng], {
+    icon: L.divIcon({ className:'click-marker-icon', html:'📍', iconSize:[20,20], iconAnchor:[10,20] })
+  }).addTo(map);
+
+  const activeLines = LINES.filter(l => map.hasLayer(l._layerGroup));
+  const activePoints = POINTS.filter(p => map.hasLayer(p._layerGroup));
+  let rows = '';
+  if (activeLines.length === 0 && activePoints.length === 0) {
+    rows = '<p style="color:#999;">Keine Linie/kein Kraftort aktuell sichtbar – bitte links etwas einblenden.</p>';
+  } else {
+    const lineResults = activeLines.map(line => {
+      const r = nearestSegmentDistance(line.sites, lat, lng);
+      return { name: line.name, color: line.color, dist: r.dist };
+    });
+    const pointResults = activePoints.map(poi => {
+      return { name: poi.name, color: poi.color, dist: haversine(lat, lng, poi.lat, poi.lng) };
+    });
+    const allResults = lineResults.concat(pointResults).sort((a,b) => a.dist - b.dist);
+    const results = allResults.slice(0, 2);
+
+    rows = results.map(r => {
+      let bewertung;
+      if (r.dist < 5) bewertung = "sehr nah";
+      else if (r.dist < 20) bewertung = "nah";
+      else if (r.dist < 50) bewertung = "im weiteren Toleranzbereich";
+      else bewertung = "abseits";
+      return `<div style="margin-top:4px;">
+        <span style="color:${r.color}; font-weight:600;">${r.name}:</span>
+        ${r.dist.toFixed(1)} km <span style="color:#888;">(${bewertung})</span>
+      </div>`;
+    }).join('');
+
+    if (allResults.length > 2) {
+      rows += `<div style="margin-top:6px; color:#777; font-size:11px;">(${allResults.length - 2} weitere, weiter entfernte ausgeblendet)</div>`;
+    }
+  }
+
+  const popupHtml = `
+    <div class="site-popup">
+      <h3>📍 Gewählter Punkt</h3>
+      <p class="coords">${lat.toFixed(4)}°, ${lng.toFixed(4)}°</p>
+      <div class="dist-row">${rows}</div>
+    </div>
+  `;
+  clickMarker.bindPopup(popupHtml).openPopup();
+});
+</script>
+</body>
+</html>
