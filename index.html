@@ -62,6 +62,7 @@
   #search-panel {
     top:12px; left:64px; right:64px; max-width:380px; margin:0 auto;
     padding:6px; display:flex; gap:6px; align-items:center;
+    transition: left 0.25s ease; z-index:1001;
   }
   @media (min-width: 701px) {
     #search-panel { left:70px; right:auto; }
@@ -796,13 +797,28 @@ const POINTS = [
 // ===================================================================
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
+const searchPanelEl = document.getElementById('search-panel');
+
+function positionSearchPanel() {
+  const isMobile = window.matchMedia('(max-width: 700px)').matches;
+  const sidebarOpen = !sidebar.classList.contains('collapsed');
+
+  if (isMobile && sidebarOpen) {
+    searchPanelEl.style.display = 'none';
+  } else {
+    searchPanelEl.style.display = 'flex';
+    searchPanelEl.style.left = sidebarOpen ? (sidebar.offsetWidth + 24) + 'px' : '64px';
+  }
+}
 
 if (window.matchMedia('(max-width: 700px)').matches) {
   sidebar.classList.add('collapsed');
 }
+positionSearchPanel();
 
 sidebarToggle.addEventListener('click', function() {
   sidebar.classList.toggle('collapsed');
+  setTimeout(positionSearchPanel, 10);
 });
 
 // ===================================================================
