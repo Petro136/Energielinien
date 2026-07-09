@@ -48,6 +48,43 @@
     #sidebar-toggle { width:40px; height:40px; font-size:18px; }
   }
 
+  /* Zoom-Buttons deutlich sichtbarer machen, passend zum dunklen Design */
+  .leaflet-control-zoom { border:none !important; box-shadow:0 4px 18px rgba(0,0,0,0.4) !important; }
+  .leaflet-control-zoom a {
+    width:40px !important; height:40px !important; line-height:40px !important; font-size:20px !important;
+    background:rgba(20,22,28,0.93) !important; color:#f4d9a0 !important; border:none !important;
+  }
+  .leaflet-control-zoom a:hover { background:rgba(40,42,48,0.97) !important; }
+  .leaflet-control-zoom-in { border-radius:10px 10px 0 0 !important; margin-bottom:2px !important; }
+  .leaflet-control-zoom-out { border-radius:0 0 10px 10px !important; }
+
+  /* Suchfeld */
+  #search-panel {
+    top:12px; left:64px; right:64px; max-width:380px; margin:0 auto;
+    padding:6px; display:flex; gap:6px; align-items:center;
+  }
+  @media (min-width: 701px) {
+    #search-panel { left:70px; right:auto; }
+  }
+  #search-input {
+    flex:1; min-width:0; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+    color:#eee; border-radius:6px; padding:8px 10px; font-size:13px; outline:none;
+  }
+  #search-input::placeholder { color:#999; }
+  #search-btn {
+    background:#f4d9a0; color:#20140a; border:none; border-radius:6px; padding:8px 12px;
+    font-size:14px; cursor:pointer; font-weight:600; flex-shrink:0;
+  }
+  #search-status { position:absolute; top:56px; left:64px; font-size:11.5px; color:#f4d9a0; background:rgba(20,22,28,0.93); padding:4px 10px; border-radius:6px; display:none; z-index:1000; }
+
+  /* Alles ein/aus Buttons */
+  .bulk-toggle { display:flex; gap:8px; margin-bottom:10px; }
+  .bulk-toggle button {
+    flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+    color:#eee; border-radius:6px; padding:6px 8px; font-size:11.5px; cursor:pointer;
+  }
+  .bulk-toggle button:hover { background:rgba(255,255,255,0.15); }
+
   .site-popup h3 { margin:0 0 4px 0; font-size:14px; color:#5a3d2b; }
   .site-popup p { margin:2px 0; font-size:12.5px; line-height:1.4; }
   .site-popup .coords { color:#888; font-size:11px; margin-top:4px; }
@@ -73,13 +110,27 @@
 
 <button id="sidebar-toggle" title="Menü ein-/ausblenden">☰</button>
 
+<div class="panel" id="search-panel">
+  <input type="text" id="search-input" placeholder="Ort suchen (z.B. Chartres, Ulm...)">
+  <button id="search-btn">🔍</button>
+</div>
+<div id="search-status"></div>
+
 <div class="panel" id="sidebar">
   <h1>⚔️ Heilige Energielinien Europas</h1>
   <p class="intro">Sechzehn bekannte Alignments plus zahlreiche einzelne Kraftorte (Michael-Heiligtümer, Druidenplätze, Kathedralen, Sacri Monti, romanische Kirchen u.v.m.) über ganz Europa. <b>Klicke auf die Karte</b>, um den Abstand eines beliebigen Punktes zu jeder aktiven Linie/jedem Kraftort zu berechnen.</p>
 
   <h3 class="first">Linien ein-/ausblenden</h3>
+  <div class="bulk-toggle">
+    <button id="lines-all-on">Alle Linien an</button>
+    <button id="lines-all-off">Alle Linien aus</button>
+  </div>
   <div id="lines-checkboxes"></div>
   <h4>Einzelne Kraftorte</h4>
+  <div class="bulk-toggle">
+    <button id="points-all-on">Alle Kraftorte an</button>
+    <button id="points-all-off">Alle Kraftorte aus</button>
+  </div>
   <div id="points-checkboxes"></div>
 
   <h3>Legende</h3>
@@ -487,6 +538,34 @@ const LINES = [
       { name: "Mont-Saint-Michel", country: "Normandie, Frankreich", lat: 48.6361, lng: -1.5115,
         desc: "Die vom Odilienberg ausgehende Verbindung zum Mont-Saint-Michel – deiner Vermutung nach über die Michaelskapelle des Odilienbergs. Beide Orte teilen die Michaelsverehrung; der Mont-Saint-Michel ist zugleich Teil der großen St.-Michael-Linie." }
     ]
+  },
+  {
+    id: "staffelberg-ansberg",
+    name: "Staffelberg-Ansberg-Linie",
+    region: "Oberfranken, Bayern",
+    color: "#6b7a9c",
+    defaultOn: true,
+    sites: [
+      { name: "Staffelberg", country: "Oberfranken, Bayern", lat: 50.0928, lng: 11.0264,
+        desc: "539 m hoher Zeugenberg bei Bad Staffelstein, gilt in der Geomantie als Kraftort. Fundspuren aus der Kelten- und Römerzeit. Nur wenige Kilometer von der Basilika Vierzehnheiligen und Kloster Banz entfernt." },
+      { name: "Ansberg (Veitskapelle)", country: "Oberfranken, Bayern", lat: 50.0578, lng: 10.9922,
+        desc: "Kapelle auf dem Nachbarberg des Staffelbergs, gut erkennbar an markanten Linden. Endpunkt der vom Staffelberg ausgehenden Leyline." }
+    ]
+  },
+  {
+    id: "wunderweg",
+    name: "Wunderweg (nach Fenzl)",
+    region: "München → Ammersee, Bayern",
+    color: "#4a8ac9",
+    defaultOn: true,
+    sites: [
+      { name: "Münchner Dom (Frauenkirche)", country: "München, Bayern", lat: 48.1386, lng: 11.5739,
+        desc: "Auch hier beschreibt Dr. Fritz Fenzl eine Kraftlinie, den sogenannten 'Wunderweg', der den Münchner Dom über Schloss Fürstenried und Leutstetten mit Kloster Andechs verbindet." },
+      { name: "Schloss Fürstenried", country: "München, Bayern", lat: 48.0817, lng: 11.4633, desc: "" },
+      { name: "Leutstetten", country: "Starnberg, Bayern", lat: 47.9967, lng: 11.4467, desc: "" },
+      { name: "Kloster Andechs", country: "Ammersee, Bayern", lat: 47.9781, lng: 11.1958,
+        desc: "Der 'Heilige Berg Bayerns' über dem Ammersee. Wallfahrtskirche mit bedeutenden Reliquien (u.a. Partikel der Dornenkrone), seit dem Mittelalter Wallfahrtsort der Wittelsbacher. Endpunkt des Wunderwegs." }
+    ]
   }
 ];
 
@@ -691,6 +770,24 @@ const POINTS = [
     color: "#9c7a5a",
     defaultOn: true,
     desc: "Keine dokumentierte Leyline-Zuschreibung gefunden, aber ein außergewöhnlich dichter Kraftort: älteste Siedlungsspuren aus dem Neolithikum (5500 v.Chr.), im 5.-3. Jh. v.Chr. ein keltisches Oppidum mit doppeltem Ringwall über 5 km Länge, danach ein römischer Tempel. 1023 n.Chr. wurde darüber die Basilika und das Kloster St. Michael errichtet – wieder eine dem Erzengel Michael geweihte Kirche über einem vorchristlichen Kultplatz, wie schon bei Odilienberg und Externsteinen. Dazu das mysteriöse 56 Meter tiefe 'Heidenloch' und eine Thingstätte."
+  },
+  {
+    id: "poi-vierzehnheiligen",
+    name: "Basilika Vierzehnheiligen",
+    country: "Bad Staffelstein, Oberfranken, Bayern",
+    lat: 50.0917, lng: 11.0492,
+    color: "#c9a54a",
+    defaultOn: true,
+    desc: "Keine direkte Leyline-Zuschreibung für die Basilika selbst gefunden – aber Teil eines der dichtesten Kraftort-Ensembles Frankens (mit Staffelberg, Kloster Banz und den prähistorischen Kultstätten Kemitzenstein und Hohler Stein). Barockmeisterwerk Balthasar Neumanns, erbaut nach den Erscheinungen der 14 Nothelfer 1445/46 vor dem Schäfer Hermann Leicht. Der Gnadenaltar steht exakt am Ort der Erscheinung."
+  },
+  {
+    id: "poi-klosterbanz",
+    name: "Kloster Banz",
+    country: "Bad Staffelstein, Oberfranken, Bayern",
+    lat: 50.1000, lng: 11.0333,
+    color: "#8a6a9c",
+    defaultOn: true,
+    desc: "Ehemaliges Benediktinerkloster gegenüber der Basilika Vierzehnheiligen auf einem markanten Bergsporn über dem Maintal – Teil desselben dichten fränkischen Kraftort-Ensembles um den Staffelberg."
   }
 ];
 
@@ -881,6 +978,70 @@ checkboxContainer.addEventListener('change', function(e) {
   if (!line) return;
   if (e.target.checked) { line._layerGroup.addTo(map); }
   else { map.removeLayer(line._layerGroup); }
+});
+
+// ===================================================================
+// "Alle ein/aus"-Buttons für Linien und Kraftorte
+// ===================================================================
+function setAllCheckboxes(container, checked) {
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    if (cb.checked !== checked) {
+      cb.checked = checked;
+      cb.dispatchEvent(new Event('change'));
+    }
+  });
+}
+document.getElementById('lines-all-on').addEventListener('click', () => setAllCheckboxes(checkboxContainer, true));
+document.getElementById('lines-all-off').addEventListener('click', () => setAllCheckboxes(checkboxContainer, false));
+document.getElementById('points-all-on').addEventListener('click', () => setAllCheckboxes(pointsContainer, true));
+document.getElementById('points-all-off').addEventListener('click', () => setAllCheckboxes(pointsContainer, false));
+
+// ===================================================================
+// Ortssuche (Nominatim / OpenStreetMap-Geocoding)
+// ===================================================================
+let searchMarker = null;
+const searchInput = document.getElementById('search-input');
+const searchStatus = document.getElementById('search-status');
+
+function showSearchStatus(text, durationMs) {
+  searchStatus.textContent = text;
+  searchStatus.style.display = 'block';
+  if (durationMs) {
+    setTimeout(() => { searchStatus.style.display = 'none'; }, durationMs);
+  }
+}
+
+async function performSearch() {
+  const query = searchInput.value.trim();
+  if (!query) return;
+  showSearchStatus('Suche läuft…');
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(query);
+    const response = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+    const results = await response.json();
+    if (!results || results.length === 0) {
+      showSearchStatus('Nichts gefunden für "' + query + '"', 3000);
+      return;
+    }
+    const r = results[0];
+    const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+    map.setView([lat, lon], 12);
+
+    if (searchMarker) map.removeLayer(searchMarker);
+    searchMarker = L.marker([lat, lon], {
+      icon: L.divIcon({ className:'click-marker-icon', html:'🔍', iconSize:[20,20], iconAnchor:[10,20] })
+    }).addTo(map);
+    searchMarker.bindPopup('<div class="site-popup"><h3>' + r.display_name.split(',')[0] + '</h3><p class="coords">' + lat.toFixed(4) + '°, ' + lon.toFixed(4) + '°</p></div>').openPopup();
+
+    showSearchStatus('Gefunden: ' + r.display_name.split(',')[0], 3000);
+  } catch (err) {
+    showSearchStatus('Suche fehlgeschlagen – bitte erneut versuchen.', 3000);
+  }
+}
+
+document.getElementById('search-btn').addEventListener('click', performSearch);
+searchInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') performSearch();
 });
 
 // ===================================================================
