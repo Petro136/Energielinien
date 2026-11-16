@@ -764,6 +764,15 @@ const POINTS = [
     desc: "Wichtiger Hinweis: Mehrere geomantische Quellen schreiben explizit, dass sie hier 'keine Hinweise auf Leys' finden – dennoch ein bedeutender Kraftort mit klassischer Schichtung: Die Kelten wählten den Bergrücken an der Mündung von Glan und Nahe als heilige Stätte, die Römer errichteten dort einen Jupitertempel, um 640 n.Chr. ließ sich der irisch-schottische Wandermönch Disibod nieder. Hildegard von Bingen verbrachte hier den längsten Teil ihres Lebens, verfasste ihr Hauptwerk 'Scivias' und leitete ab 1136 den Frauenkonvent. Heute: 'Weg der Stille' mit Meditationstafeln und ein Labyrinth."
   },
   {
+    id: "poi-toblburg",
+    name: "Franziskus-und-Klara-Kapelle (Toblburg)",
+    country: "Sand in Taufers, Südtirol, Italien",
+    lat: 46.9300, lng: 11.9400,
+    color: "#5a8a9c",
+    defaultOn: true,
+    desc: "Keine dokumentierte Leyline-Zuschreibung gefunden – aber ein Ort mit besonderer Atmosphäre. Ehemalige Burgkapelle der Ruine Toblburg (Stammsitz der Edlen von Taufers), hoch über den drei Reinbach-Wasserfällen. Dem Verfall preisgegeben, 1982 komplett restauriert; daraufhin wurde der Franziskusweg mit zehn Besinnungsstationen zum Sonnengesang des hl. Franz von Assisi angelegt. Zwei Ebenen (Innenraum und Krypta), Tag und Nacht zur Andacht geöffnet."
+  },
+  {
     id: "poi-heiligenberg",
     name: "Heiligenberg (Heidelberg)",
     country: "Baden-Württemberg, Deutschland",
@@ -827,8 +836,8 @@ sidebarToggle.addEventListener('click', function() {
 const map = L.map('map', { zoomControl:false, preferCanvas:true }).setView([46, 8], 4);
 L.control.zoom({ position:'topright' }).addTo(map);
 
-const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap-Mitwirkende &copy; CARTO', maxZoom: 19, subdomains: 'abcd'
+const streetLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap-Mitwirkende', maxZoom: 19
 });
 const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
   attribution: 'Tiles &copy; Esri', maxZoom: 19
